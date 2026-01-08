@@ -1,21 +1,30 @@
 const pool = require('./db');
 
-export default async function handler(req, res) {
+module.exports = async (req, res) => {
+  // CORS Headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   // GET: Fetch all providers and their reviews
   if (req.method === 'GET') {
     try {
-      // Get providers
       const providersData = await pool.query('SELECT * FROM providers');
       const providers = providersData.rows;
 
-      // Get reviews for each provider
+      // Fetch reviews for each provider (simple n+1 query for now, acceptable for small scale)
       for (let p of providers) {
         const reviewData = await pool.query('SELECT user_name as user, rating, text FROM reviews WHERE provider_id = $1', [p.id]);
-        p.userReviews = reviewData.rows; // Attach reviews to provider object
+        p.userReviews = reviewData.rows;
       }
 
       res.status(200).json(providers);
     } catch (error) {
+      console.error("Fetch Error:", error);
       res.status(500).json({ error: error.message });
     }
   } 
@@ -31,6 +40,7 @@ export default async function handler(req, res) {
       );
       res.status(200).json(result.rows[0]);
     } catch (error) {
+      console.error("Create Error:", error);
       res.status(500).json({ error: error.message });
     }
   }
@@ -39,11 +49,10 @@ export default async function handler(req, res) {
   else if (req.method === 'PUT') {
     const { id, name, qualification, experience, service, fees, timing, phone, address, lat, lng, image, description } = req.body;
     try {
-      // Start with base update
       let query = `UPDATE providers SET name=$1, qualification=$2, experience=$3, service=$4, fees=$5, timing=$6, phone=$7, address=$8, lat=$9, lng=$10, description=$11`;
       let values = [name, qualification, experience, service, fees, timing, phone, address, lat, lng, description];
       
-      // Only update image if a new one is provided (Base64 strings are heavy)
+      // Only update image if a new one is provided
       if(image && image.length > 0) {
         query += `, image=$12 WHERE id=$13`;
         values.push(image, id);
@@ -55,6 +64,7 @@ export default async function handler(req, res) {
       await pool.query(query, values);
       res.status(200).json({ success: true });
     } catch (error) {
+      console.error("Update Error:", error);
       res.status(500).json({ error: error.message });
     }
   }
@@ -63,12 +73,17 @@ export default async function handler(req, res) {
   else if (req.method === 'DELETE') {
     const { id } = req.body;
     try {
-        // Delete reviews first due to foreign key
+        // Delete related reviews first to satisfy foreign key constraints
         await pool.query('DELETE FROM reviews WHERE provider_id = $1', [id]); 
         await pool.query('DELETE FROM providers WHERE id = $1', [id]);
         res.status(200).json({ success: true });
     } catch (error) {
+        console.error("Delete Error:", error);
         res.status(500).json({ error: error.message });
     }
+  } 
+  
+  else {
+    res.status(405).json({ error: 'Method not allowed' });
   }
-}
+};
