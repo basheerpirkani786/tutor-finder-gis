@@ -1,6 +1,16 @@
 const pool = require('./db');
 
-export default async function handler(req, res) {
+module.exports = async (req, res) => {
+  // Set CORS headers to allow requests from any origin (optional but helpful)
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  // Handle preflight OPTIONS request
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   if (req.method === 'POST') {
     const { action, username, password, role } = req.body;
 
@@ -24,11 +34,16 @@ export default async function handler(req, res) {
         
         const user = result.rows[0];
         return res.status(200).json({ id: user.id, username: user.username, role: user.role });
+      } else {
+        return res.status(400).json({ error: 'Invalid action' });
       }
 
     } catch (error) {
+      console.error("Auth Error:", error);
       return res.status(500).json({ error: error.message });
     }
-  }
+  } 
+  
+  // Method not allowed
   res.status(405).json({ error: 'Method not allowed' });
-}
+};
