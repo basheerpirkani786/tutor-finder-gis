@@ -26,28 +26,33 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeMap();
     initializeEventListeners();
     checkAuthSession();
-    fetchData(); // Changed from loadData to fetchData
+    fetchData(); 
     initChatbot();
 });
 
-// --- API HANDLING (REPLACES LOCAL STORAGE) ---
+// --- API HANDLING ---
 
 async function fetchData() {
     try {
         const res = await fetch('/api/providers');
-        if (!res.ok) throw new Error('Failed to load data');
-        providers = await res.json();
-        // Ensure Lat/Lng are numbers
-        providers.forEach(p => { p.lat = parseFloat(p.lat); p.lng = parseFloat(p.lng); p.rating = parseFloat(p.rating || 0); });
-        applyFilters();
-        
-        // Update admin stats if open
-        if(document.getElementById('adminModal').style.display === 'block') {
-             document.getElementById('adminTotalShops').textContent = providers.length;
+        if (!res.ok) {
+            const errText = await res.text();
+            throw new Error(`Server Error (${res.status}): ${errText}`);
         }
+        providers = await res.json();
+        
+        // Clean data
+        providers.forEach(p => { 
+            p.lat = parseFloat(p.lat); 
+            p.lng = parseFloat(p.lng); 
+            p.rating = parseFloat(p.rating || 0); 
+        });
+        
+        applyFilters();
     } catch (err) {
-        console.error(err);
-        alert("Error connecting to cloud database.");
+        console.error("Fetch Data Failed:", err);
+        // Only alert if it's a critical error, but log it to console
+        console.log("Could not load tutors. Check database connection.");
     }
 }
 
@@ -78,7 +83,7 @@ async function login(username, password) {
         } else {
             alert(data.error);
         }
-    } catch (err) { alert("Login failed."); }
+    } catch (err) { alert("Login failed. Check internet connection."); }
 }
 
 async function register(username, password, role) {
@@ -91,7 +96,7 @@ async function register(username, password, role) {
 
         const data = await res.json();
         if (res.ok) {
-            currentUser = data; // Register logs you in automatically
+            currentUser = data; 
             localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(data));
             updateUIForUser();
             document.getElementById('registerModal').style.display = 'none';
@@ -125,7 +130,6 @@ function updateUIForGuest() {
     document.getElementById('adminPanelBtn').style.display = 'none';
 }
 
-// --- HELPER: Image Base64 ---
 const convertBase64 = (file) => {
     return new Promise((resolve, reject) => {
         const fileReader = new FileReader();
@@ -188,7 +192,7 @@ function initializeEventListeners() {
     document.getElementById('adminPanelBtn').addEventListener('click', openAdminPanel);
 }
 
-// --- CHATBOT (Kept Client Side mostly) ---
+// --- CHATBOT ---
 function initChatbot() {
     const icon = document.getElementById('chatbot-icon');
     const container = document.getElementById('chatbot-container');
@@ -225,7 +229,7 @@ function addChatMsg(msg, type) {
     container.scrollTop = container.scrollHeight;
 }
 
-// --- PROVIDER CRUD (Create/Edit) ---
+// --- PROVIDER CRUD ---
 function openAddProviderModal(editMode = false, provider = null) {
     const modal = document.getElementById('addProviderModal');
     const form = document.getElementById('providerForm');
@@ -268,7 +272,6 @@ async function handleProviderSubmit(e) {
     const fileInput = document.getElementById('providerImage');
     let imageBase64 = "";
 
-    // If uploading new image
     if (fileInput.files.length > 0) {
         try { imageBase64 = await convertBase64(fileInput.files[0]); } catch (err) {}
     }
@@ -305,7 +308,7 @@ async function handleProviderSubmit(e) {
         if (res.ok) {
             alert(isEditing ? "Profile Updated!" : "Profile Added!");
             document.getElementById('addProviderModal').style.display = 'none';
-            fetchData(); // Reload data from cloud
+            fetchData(); 
         } else {
             alert("Error saving profile");
         }
@@ -363,7 +366,7 @@ function showProviderDetails(providerId) {
     else imgContainer.style.display = 'none';
 
     const ownerActions = document.getElementById('ownerActions');
-    const isOwner = currentUser && (provider.owner_id === currentUser.id); // Check owner_id
+    const isOwner = currentUser && (provider.owner_id === currentUser.id); 
     const isAdmin = currentUser && currentUser.role === 'admin';
     ownerActions.style.display = (isOwner || isAdmin) ? 'flex' : 'none';
 
@@ -519,7 +522,7 @@ async function submitReview() {
         
         if (res.ok) {
             alert("Review submitted!");
-            fetchData(); // Reload to see new rating
+            fetchData(); 
             document.getElementById('providerDetailsModal').style.display = 'none';
         }
     } catch (err) { alert("Failed to submit review"); }
@@ -615,11 +618,30 @@ function performSearch() {
     }
 }
 
-function openAdminPanel() {
-    document.getElementById('adminTotalUsers').textContent = "N/A (Cloud)";
-    document.getElementById('adminTotalShops').textContent = providers.length;
-    document.getElementById('adminListSection').style.display = 'none';
+// --- ADMIN PANEL (UPDATED) ---
+async function openAdminPanel() {
     document.getElementById('adminModal').style.display = 'block';
+    
+    // Set loading state
+    document.getElementById('adminTotalUsers').textContent = "...";
+    document.getElementById('adminTotalShops').textContent = "...";
+
+    try {
+        const res = await fetch('/api/stats');
+        if (res.ok) {
+            const data = await res.json();
+            document.getElementById('adminTotalUsers').textContent = data.totalUsers;
+            document.getElementById('adminTotalShops').textContent = data.totalProviders;
+        } else {
+            document.getElementById('adminTotalUsers').textContent = "Error";
+            document.getElementById('adminTotalShops').textContent = "Error";
+        }
+    } catch (err) {
+        console.error("Admin stats failed", err);
+        document.getElementById('adminTotalUsers').textContent = "Offline";
+    }
+
+    document.getElementById('adminListSection').style.display = 'none';
 }
 
 document.querySelectorAll('.rating-stars .star').forEach(star => {
