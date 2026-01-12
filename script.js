@@ -74,9 +74,8 @@ async function login(username, password) {
         
         const data = await res.json();
         
-        // UPDATED: Check for data.error explicitly
         if (data.error) {
-            alert(data.error); // Show "Invalid credentials" alert
+            alert(data.error); 
         } else if (res.ok) {
             currentUser = data;
             localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(currentUser));
@@ -100,9 +99,8 @@ async function register(username, password, role) {
 
         const data = await res.json();
 
-        // UPDATED: Check for data.error explicitly
         if (data.error) {
-            alert(data.error); // Show "Username taken" alert
+            alert(data.error); 
         } else if (res.ok) {
             currentUser = data; 
             localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(data));
@@ -112,6 +110,36 @@ async function register(username, password, role) {
     } catch (err) { 
         console.error(err);
         alert("Registration failed."); 
+    }
+}
+
+// --- FORGOT PASSWORD FUNCTION ---
+async function resetPassword(username, newPassword) {
+    if (!username || !newPassword) {
+        alert("Please fill in all fields");
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/auth', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'reset-password', username, password: newPassword })
+        });
+        
+        const data = await res.json();
+        
+        if (data.error) {
+            alert(data.error);
+        } else if (data.success) {
+            alert("Password reset successful! Please login with your new password.");
+            document.getElementById('forgotPasswordModal').style.display = 'none';
+            document.getElementById('forgotForm').reset();
+            document.getElementById('loginModal').style.display = 'block';
+        }
+    } catch (err) {
+        console.error("Reset Password Error:", err);
+        alert("Reset failed. Check connection.");
     }
 }
 
@@ -199,6 +227,24 @@ function initializeEventListeners() {
     document.getElementById('registerForm').addEventListener('submit', (e) => { e.preventDefault(); register(document.getElementById('regUsername').value, document.getElementById('regPassword').value, document.getElementById('regRole').value); });
     document.querySelectorAll('.close').forEach(btn => btn.addEventListener('click', () => document.querySelectorAll('.modal').forEach(m => m.style.display = 'none')));
     document.getElementById('adminPanelBtn').addEventListener('click', openAdminPanel);
+
+    // --- FORGOT PASSWORD EVENTS ---
+    if (document.getElementById('forgotPasswordLink')) {
+        document.getElementById('forgotPasswordLink').addEventListener('click', (e) => {
+            e.preventDefault();
+            document.getElementById('loginModal').style.display = 'none';
+            document.getElementById('forgotPasswordModal').style.display = 'block';
+        });
+    }
+    
+    if (document.getElementById('forgotForm')) {
+        document.getElementById('forgotForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const user = document.getElementById('forgotUsername').value;
+            const pass = document.getElementById('newPassword').value;
+            resetPassword(user, pass);
+        });
+    }
 }
 
 // --- CHATBOT ---
