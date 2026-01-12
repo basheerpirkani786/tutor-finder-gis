@@ -1,6 +1,7 @@
 const pool = require('./db');
 
 module.exports = async (req, res) => {
+  // 1. Handle CORS (Cross-Origin Resource Sharing)
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -11,37 +12,35 @@ module.exports = async (req, res) => {
 
   if (req.method === 'POST') {
     const { action, username, password } = req.body;
-    let { role } = req.body; // Allow role to be modified
-    
-    // Trim spaces and handle empty inputs
+    let { role } = req.body; // Allow role to be modified by logic below
+
+    // Clean inputs
     const cleanUsername = username ? username.trim() : '';
     const cleanPassword = password ? password.trim() : '';
     
-    // SECURITY CONFIGURATION
-    // Only this specific username will get Admin privileges automatically.
-    // You can change 'admin' to your own name if you prefer (e.g., 'basheer').
+    // --- ADMIN SECURITY CONFIGURATION ---
+    // The username "admin" will ALWAYS be an Administrator.
+    // Everyone else is forced to be a User or Provider.
     const ADMIN_USERNAME = 'admin'; 
 
     try {
+      // --- REGISTER ---
       if (action === 'register') {
-        // 1. Check if username exists (case insensitive)
         const check = await pool.query('SELECT * FROM users WHERE LOWER(username) = LOWER($1)', [cleanUsername]);
         
         if (check.rows.length > 0) {
             return res.status(200).json({ error: 'Username taken' });
         }
 
-        // 2. SECRET ADMIN LOGIC
-        // If the username matches the specific ADMIN_USERNAME, force role to 'admin'
+        // Auto-assign Admin role if username is 'admin'
         if (cleanUsername.toLowerCase() === ADMIN_USERNAME) {
             role = 'admin';
         } 
-        // 3. SECURITY: If anyone else tries to set role='admin' without the correct username, force them to 'user'
+        // Prevent hackers from forcing 'admin' role on other names
         else if (role === 'admin') {
             role = 'user';
         }
 
-        // 4. Create the user
         const result = await pool.query(
           'INSERT INTO users (username, password, role) VALUES ($1, $2, $3) RETURNING id, username, role',
           [cleanUsername, cleanPassword, role]
@@ -49,6 +48,7 @@ module.exports = async (req, res) => {
         return res.status(200).json(result.rows[0]);
       } 
       
+      // --- LOGIN ---
       else if (action === 'login') {
         const result = await pool.query('SELECT * FROM users WHERE LOWER(username) = LOWER($1) AND password = $2', [cleanUsername, cleanPassword]);
         
@@ -60,14 +60,19 @@ module.exports = async (req, res) => {
         return res.status(200).json({ id: user.id, username: user.username, role: user.role });
       } 
 
+      // --- RESET PASSWORD (FORGOT PASSWORD) ---
       else if (action === 'reset-password') {
+        // 1. Check if user exists
         const check = await pool.query('SELECT * FROM users WHERE LOWER(username) = LOWER($1)', [cleanUsername]);
+        
         if (check.rows.length === 0) {
             return res.status(200).json({ error: 'User not found' });
         }
 
+        // 2. Update the password
         await pool.query('UPDATE users SET password = $1 WHERE LOWER(username) = LOWER($2)', [cleanPassword, cleanUsername]);
-        return res.status(200).json({ success: true });
+        
+        return res.status(200).json({ success: true, message: 'Password updated successfully' });
       }
       
       else {
