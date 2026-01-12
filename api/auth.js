@@ -15,7 +15,11 @@ module.exports = async (req, res) => {
     try {
       if (action === 'register') {
         const check = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
-        if (check.rows.length > 0) return res.status(400).json({ error: 'Username taken' });
+        
+        // CHANGE: Return 200 with error message instead of 400 to avoid console error
+        if (check.rows.length > 0) {
+            return res.status(200).json({ error: 'Username taken' });
+        }
 
         const result = await pool.query(
           'INSERT INTO users (username, password, role) VALUES ($1, $2, $3) RETURNING id, username, role',
@@ -26,16 +30,21 @@ module.exports = async (req, res) => {
       
       else if (action === 'login') {
         const result = await pool.query('SELECT * FROM users WHERE username = $1 AND password = $2', [username, password]);
-        if (result.rows.length === 0) return res.status(401).json({ error: 'Invalid credentials' });
+        
+        // CHANGE: Return 200 with error message instead of 401 to avoid console error
+        if (result.rows.length === 0) {
+            return res.status(200).json({ error: 'Invalid credentials' });
+        }
         
         const user = result.rows[0];
         return res.status(200).json({ id: user.id, username: user.username, role: user.role });
       } else {
-        return res.status(400).json({ error: 'Invalid action' });
+        return res.status(200).json({ error: 'Invalid action' });
       }
 
     } catch (error) {
       console.error("SERVER ERROR in auth.js:", error);
+      // Keep 500 for actual server crashes
       return res.status(500).json({ error: error.message });
     }
   } 
