@@ -245,6 +245,12 @@ function initializeEventListeners() {
             resetPassword(user, pass);
         });
     }
+
+    // --- ADMIN CLICK EVENTS ---
+    // When clicking "Total Users" card
+    document.getElementById('statUsers').addEventListener('click', () => loadAdminList('users'));
+    // When clicking "Total Tutors" card
+    document.getElementById('statShops').addEventListener('click', () => loadAdminList('providers'));
 }
 
 // --- CHATBOT ---
@@ -678,25 +684,91 @@ async function openAdminPanel() {
     document.getElementById('adminModal').style.display = 'block';
     
     // Set loading state
-    document.getElementById('adminTotalUsers').textContent = "...";
-    document.getElementById('adminTotalShops').textContent = "...";
+    const usersEl = document.getElementById('adminTotalUsers');
+    const shopsEl = document.getElementById('adminTotalShops');
+    usersEl.textContent = "...";
+    shopsEl.textContent = "...";
+    document.getElementById('adminListSection').style.display = 'none';
 
     try {
         const res = await fetch('/api/stats');
         if (res.ok) {
             const data = await res.json();
-            document.getElementById('adminTotalUsers').textContent = data.totalUsers;
-            document.getElementById('adminTotalShops').textContent = data.totalProviders;
+            usersEl.textContent = data.totalUsers;
+            shopsEl.textContent = data.totalProviders;
         } else {
-            document.getElementById('adminTotalUsers').textContent = "Error";
-            document.getElementById('adminTotalShops').textContent = "Error";
+            usersEl.textContent = "Error";
+            shopsEl.textContent = "Error";
         }
     } catch (err) {
         console.error("Admin stats failed", err);
-        document.getElementById('adminTotalUsers').textContent = "Offline";
+        usersEl.textContent = "Offline";
     }
+}
 
-    document.getElementById('adminListSection').style.display = 'none';
+// Function to fetch and show list (Called by clicking stats cards)
+async function loadAdminList(type) {
+    const titleEl = document.getElementById('adminListTitle');
+    const container = document.getElementById('adminListContainer');
+    document.getElementById('adminListSection').style.display = 'block';
+    container.innerHTML = "Loading...";
+    
+    titleEl.textContent = type === 'users' ? "Manage Users" : "Manage Tutors";
+
+    try {
+        const res = await fetch(`/api/stats?type=${type}`);
+        const list = await res.json();
+
+        container.innerHTML = "";
+        if(list.length === 0) {
+            container.innerHTML = "<p>No records found.</p>";
+            return;
+        }
+
+        list.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'admin-list-item';
+            
+            // Display different info based on type
+            const name = item.username || item.name;
+            const sub = item.role ? `(${item.role})` : `(${item.service})`;
+            
+            div.innerHTML = `
+                <div><strong>${name}</strong> <span style="font-size:0.85rem; color:#666;">${sub}</span></div>
+                <button class="btn-sm-danger">Delete</button>
+            `;
+            
+            // Add Delete Event
+            div.querySelector('button').addEventListener('click', () => deleteAdminItem(type, item.id));
+            container.appendChild(div);
+        });
+
+    } catch(err) {
+        container.innerHTML = "Error loading list.";
+    }
+}
+
+// Function to delete an item
+async function deleteAdminItem(type, id) {
+    if(!confirm("Are you sure you want to permanently delete this?")) return;
+
+    try {
+        const res = await fetch('/api/stats', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type, id })
+        });
+
+        if(res.ok) {
+            // Refresh counts and list
+            openAdminPanel();
+            loadAdminList(type); 
+        } else {
+            alert("Delete failed.");
+        }
+    } catch(err) {
+        alert("Server error during delete.");
+    }
 }
 
 document.querySelectorAll('.rating-stars .star').forEach(star => {
