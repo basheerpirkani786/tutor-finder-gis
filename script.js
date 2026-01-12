@@ -214,7 +214,7 @@ function toggleWmsLayer() {
         map.removeLayer(geoserverLayer);
         geoserverLayer = null;
         btn.style.border = "none"; // Remove active styling
-        console.log("GeoServer layer removed");
+        console.log("GeoServer ready");
     } else {
         // If layer doesn't exist, add it
         geoserverLayer = L.tileLayer.wms(GEOSERVER_URL, {
@@ -811,3 +811,4 @@ document.querySelectorAll('.rating-stars .star').forEach(star => {
         this.parentElement.setAttribute('data-selected-rating', rating);
     });
 });
+
