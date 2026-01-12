@@ -10,20 +10,38 @@ module.exports = async (req, res) => {
   }
 
   if (req.method === 'POST') {
-    const { action, username, password, role } = req.body;
+    const { action, username, password } = req.body;
+    let { role } = req.body; // Allow role to be modified
     
-    // FIX: Trim spaces from inputs to prevent " User" vs "User" mismatch
+    // Trim spaces and handle empty inputs
     const cleanUsername = username ? username.trim() : '';
     const cleanPassword = password ? password.trim() : '';
+    
+    // SECURITY CONFIGURATION
+    // Only this specific username will get Admin privileges automatically.
+    // You can change 'admin' to your own name if you prefer (e.g., 'basheer').
+    const ADMIN_USERNAME = 'admin'; 
 
     try {
       if (action === 'register') {
-        // FIX: Check lowercase username to prevent "Ali" vs "ali" duplicates
+        // 1. Check if username exists (case insensitive)
         const check = await pool.query('SELECT * FROM users WHERE LOWER(username) = LOWER($1)', [cleanUsername]);
         
-        // FIX: Return 200 with error property (fixes red console error)
-        if (check.rows.length > 0) return res.status(200).json({ error: 'Username taken' });
+        if (check.rows.length > 0) {
+            return res.status(200).json({ error: 'Username taken' });
+        }
 
+        // 2. SECRET ADMIN LOGIC
+        // If the username matches the specific ADMIN_USERNAME, force role to 'admin'
+        if (cleanUsername.toLowerCase() === ADMIN_USERNAME) {
+            role = 'admin';
+        } 
+        // 3. SECURITY: If anyone else tries to set role='admin' without the correct username, force them to 'user'
+        else if (role === 'admin') {
+            role = 'user';
+        }
+
+        // 4. Create the user
         const result = await pool.query(
           'INSERT INTO users (username, password, role) VALUES ($1, $2, $3) RETURNING id, username, role',
           [cleanUsername, cleanPassword, role]
@@ -32,16 +50,27 @@ module.exports = async (req, res) => {
       } 
       
       else if (action === 'login') {
-        // FIX: Case insensitive username search for login
-        // FIX: Check password against the trimmed input
         const result = await pool.query('SELECT * FROM users WHERE LOWER(username) = LOWER($1) AND password = $2', [cleanUsername, cleanPassword]);
         
-        // FIX: Return 200 with error property (fixes red console error)
-        if (result.rows.length === 0) return res.status(200).json({ error: 'Invalid credentials' });
+        if (result.rows.length === 0) {
+            return res.status(200).json({ error: 'Invalid credentials' });
+        }
         
         const user = result.rows[0];
         return res.status(200).json({ id: user.id, username: user.username, role: user.role });
-      } else {
+      } 
+
+      else if (action === 'reset-password') {
+        const check = await pool.query('SELECT * FROM users WHERE LOWER(username) = LOWER($1)', [cleanUsername]);
+        if (check.rows.length === 0) {
+            return res.status(200).json({ error: 'User not found' });
+        }
+
+        await pool.query('UPDATE users SET password = $1 WHERE LOWER(username) = LOWER($2)', [cleanPassword, cleanUsername]);
+        return res.status(200).json({ success: true });
+      }
+      
+      else {
         return res.status(200).json({ error: 'Invalid action' });
       }
 
