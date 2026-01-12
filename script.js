@@ -2,7 +2,7 @@
 let map;
 let satelliteLayer;
 let osmLayer;
-let geoserverLayer = null; // NEW: GeoServer Layer
+let geoserverLayer = null; // Store the GeoServer layer
 let currentLayer = 'osm';
 let userLocation = null;
 let searchAnchor = null; 
@@ -21,7 +21,9 @@ let isVoiceEnabled = false;
 const DEFAULT_CENTER = { lat: 30.1687, lng: 66.9859 }; 
 const CURRENT_USER_KEY = 'tutorFinder_currentUser';
 
-// NEW: GeoServer Configuration (Change if needed)
+// --- GEOSERVER CONFIGURATION ---
+// Ensure 'tutor_gis' matches your Workspace name in GeoServer
+// Ensure 'providers' matches your Layer name
 const GEOSERVER_URL = 'http://localhost:8080/geoserver/tutor_gis/wms'; 
 const GEOSERVER_LAYER_NAME = 'tutor_gis:providers'; 
 
@@ -203,27 +205,28 @@ function initializeMap() {
     });
 }
 
-// NEW: Toggle GeoServer WMS Layer
+// --- NEW FUNCTION: TOGGLE GEOSERVER WMS LAYER ---
 function toggleWmsLayer() {
     const btn = document.getElementById('toggleWmsBtn');
     
     if (geoserverLayer) {
-        // Remove layer
+        // If layer exists, remove it
         map.removeLayer(geoserverLayer);
         geoserverLayer = null;
-        btn.style.border = "none";
+        btn.style.border = "none"; // Remove active styling
         console.log("GeoServer layer removed");
     } else {
-        // Add layer
+        // If layer doesn't exist, add it
         geoserverLayer = L.tileLayer.wms(GEOSERVER_URL, {
             layers: GEOSERVER_LAYER_NAME,
             format: 'image/png',
             transparent: true,
             version: '1.1.0',
-            attribution: 'GeoServer'
+            attribution: 'GeoServer Data'
         });
+        
         geoserverLayer.addTo(map);
-        btn.style.border = "2px solid #333";
+        btn.style.border = "2px solid #333"; // Add active styling to button
         console.log("GeoServer layer added");
     }
 }
@@ -238,7 +241,7 @@ function initializeEventListeners() {
     document.getElementById('setOsmMap').addEventListener('click', () => setBasemap('osm'));
     document.getElementById('setSatelliteMap').addEventListener('click', () => setBasemap('satellite'));
     
-    // NEW: GeoServer Toggle Event
+    // NEW EVENT: GeoServer Toggle
     document.getElementById('toggleWmsBtn').addEventListener('click', toggleWmsLayer);
 
     document.getElementById('manualLat').addEventListener('change', handleManualCoordChange);
