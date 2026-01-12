@@ -2,6 +2,7 @@
 let map;
 let satelliteLayer;
 let osmLayer;
+let geoserverLayer = null; // NEW: GeoServer Layer
 let currentLayer = 'osm';
 let userLocation = null;
 let searchAnchor = null; 
@@ -19,6 +20,10 @@ let isVoiceEnabled = false;
 // Config
 const DEFAULT_CENTER = { lat: 30.1687, lng: 66.9859 }; 
 const CURRENT_USER_KEY = 'tutorFinder_currentUser';
+
+// NEW: GeoServer Configuration (Change if needed)
+const GEOSERVER_URL = 'http://localhost:8080/geoserver/tutor_gis/wms'; 
+const GEOSERVER_LAYER_NAME = 'tutor_gis:providers'; 
 
 let currentUser = null; 
 
@@ -113,7 +118,6 @@ async function register(username, password, role) {
     }
 }
 
-// --- FORGOT PASSWORD FUNCTION ---
 async function resetPassword(username, newPassword) {
     if (!username || !newPassword) {
         alert("Please fill in all fields");
@@ -199,6 +203,31 @@ function initializeMap() {
     });
 }
 
+// NEW: Toggle GeoServer WMS Layer
+function toggleWmsLayer() {
+    const btn = document.getElementById('toggleWmsBtn');
+    
+    if (geoserverLayer) {
+        // Remove layer
+        map.removeLayer(geoserverLayer);
+        geoserverLayer = null;
+        btn.style.border = "none";
+        console.log("GeoServer layer removed");
+    } else {
+        // Add layer
+        geoserverLayer = L.tileLayer.wms(GEOSERVER_URL, {
+            layers: GEOSERVER_LAYER_NAME,
+            format: 'image/png',
+            transparent: true,
+            version: '1.1.0',
+            attribution: 'GeoServer'
+        });
+        geoserverLayer.addTo(map);
+        btn.style.border = "2px solid #333";
+        console.log("GeoServer layer added");
+    }
+}
+
 // --- EVENTS ---
 function initializeEventListeners() {
     document.getElementById('searchBtn').addEventListener('click', performSearch);
@@ -208,6 +237,10 @@ function initializeEventListeners() {
     document.getElementById('resetMapBtn').addEventListener('click', resetMapView);
     document.getElementById('setOsmMap').addEventListener('click', () => setBasemap('osm'));
     document.getElementById('setSatelliteMap').addEventListener('click', () => setBasemap('satellite'));
+    
+    // NEW: GeoServer Toggle Event
+    document.getElementById('toggleWmsBtn').addEventListener('click', toggleWmsLayer);
+
     document.getElementById('manualLat').addEventListener('change', handleManualCoordChange);
     document.getElementById('manualLng').addEventListener('change', handleManualCoordChange);
     document.getElementById('addProviderBtn').addEventListener('click', () => openAddProviderModal(false));
@@ -228,7 +261,6 @@ function initializeEventListeners() {
     document.querySelectorAll('.close').forEach(btn => btn.addEventListener('click', () => document.querySelectorAll('.modal').forEach(m => m.style.display = 'none')));
     document.getElementById('adminPanelBtn').addEventListener('click', openAdminPanel);
 
-    // --- FORGOT PASSWORD EVENTS ---
     if (document.getElementById('forgotPasswordLink')) {
         document.getElementById('forgotPasswordLink').addEventListener('click', (e) => {
             e.preventDefault();
@@ -246,10 +278,8 @@ function initializeEventListeners() {
         });
     }
 
-    // --- ADMIN CLICK EVENTS ---
-    // When clicking "Total Users" card
+    // Admin Click Events
     document.getElementById('statUsers').addEventListener('click', () => loadAdminList('users'));
-    // When clicking "Total Tutors" card
     document.getElementById('statShops').addEventListener('click', () => loadAdminList('providers'));
 }
 
