@@ -21,10 +21,10 @@ let isVoiceEnabled = false;
 const DEFAULT_CENTER = { lat: 30.1687, lng: 66.9859 }; 
 const CURRENT_USER_KEY = 'tutorFinder_currentUser';
 
-// --- GEOSERVER CONFIGURATION ---
-// Ensure 'tutor_gis' matches your Workspace name in GeoServer
-// Ensure 'providers' matches your Layer name
-const GEOSERVER_URL = 'http://localhost:8080/geoserver/tutor_gis/wms'; 
+// --- GEOSERVER CONFIGURATION (FIXED) ---
+// 1. Use the generic WMS endpoint
+const GEOSERVER_URL = 'http://localhost:8080/geoserver/wms'; 
+// 2. Use the format 'workspace:layer'
 const GEOSERVER_LAYER_NAME = 'tutor_gis:providers'; 
 
 let currentUser = null; 
@@ -205,7 +205,7 @@ function initializeMap() {
     });
 }
 
-// --- NEW FUNCTION: TOGGLE GEOSERVER WMS LAYER ---
+// --- TOGGLE GEOSERVER WMS LAYER (FIXED) ---
 function toggleWmsLayer() {
     const btn = document.getElementById('toggleWmsBtn');
     
@@ -213,21 +213,30 @@ function toggleWmsLayer() {
         // If layer exists, remove it
         map.removeLayer(geoserverLayer);
         geoserverLayer = null;
-        btn.style.border = "none"; // Remove active styling
-        console.log("GeoServer ready");
+        btn.style.backgroundColor = "#e67e22"; // Reset color (Orange)
+        console.log("GeoServer layer removed");
     } else {
+        console.log(`Connecting to GeoServer: ${GEOSERVER_URL} | Layer: ${GEOSERVER_LAYER_NAME}`);
+        
         // If layer doesn't exist, add it
         geoserverLayer = L.tileLayer.wms(GEOSERVER_URL, {
             layers: GEOSERVER_LAYER_NAME,
             format: 'image/png',
             transparent: true,
             version: '1.1.0',
+            tiled: true, // Smoother loading
             attribution: 'GeoServer Data'
         });
         
         geoserverLayer.addTo(map);
-        btn.style.border = "2px solid #333"; // Add active styling to button
+        btn.style.backgroundColor = "#27ae60"; // Active color (Green)
         console.log("GeoServer layer added");
+        
+        // Add error logging to debug connections
+        geoserverLayer.on('tileerror', function(error, tile) {
+            console.error("GeoServer Tile Error (Check Console Network Tab):", error);
+            alert("Error loading GeoServer layer. Ensure GeoServer is running and CORS is enabled.");
+        });
     }
 }
 
@@ -242,7 +251,12 @@ function initializeEventListeners() {
     document.getElementById('setSatelliteMap').addEventListener('click', () => setBasemap('satellite'));
     
     // NEW EVENT: GeoServer Toggle
-    document.getElementById('toggleWmsBtn').addEventListener('click', toggleWmsLayer);
+    const wmsBtn = document.getElementById('toggleWmsBtn');
+    if(wmsBtn) {
+        wmsBtn.addEventListener('click', toggleWmsLayer);
+    } else {
+        console.error("WMS Button not found in HTML");
+    }
 
     document.getElementById('manualLat').addEventListener('change', handleManualCoordChange);
     document.getElementById('manualLng').addEventListener('change', handleManualCoordChange);
@@ -811,4 +825,3 @@ document.querySelectorAll('.rating-stars .star').forEach(star => {
         this.parentElement.setAttribute('data-selected-rating', rating);
     });
 });
-
