@@ -51,7 +51,6 @@ async function fetchData() {
         applyFilters();
     } catch (err) {
         console.error("Fetch Data Failed:", err);
-        // Only alert if it's a critical error, but log it to console
         console.log("Could not load tutors. Check database connection.");
     }
 }
@@ -74,16 +73,21 @@ async function login(username, password) {
         });
         
         const data = await res.json();
-        if (res.ok) {
+        
+        // UPDATED: Check for data.error explicitly
+        if (data.error) {
+            alert(data.error); // Show "Invalid credentials" alert
+        } else if (res.ok) {
             currentUser = data;
             localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(currentUser));
             updateUIForUser();
             document.getElementById('loginModal').style.display = 'none';
             document.getElementById('loginForm').reset();
-        } else {
-            alert(data.error);
         }
-    } catch (err) { alert("Login failed. Check internet connection."); }
+    } catch (err) { 
+        console.error(err);
+        alert("Login failed. Check internet connection."); 
+    }
 }
 
 async function register(username, password, role) {
@@ -95,15 +99,20 @@ async function register(username, password, role) {
         });
 
         const data = await res.json();
-        if (res.ok) {
+
+        // UPDATED: Check for data.error explicitly
+        if (data.error) {
+            alert(data.error); // Show "Username taken" alert
+        } else if (res.ok) {
             currentUser = data; 
             localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(data));
             updateUIForUser();
             document.getElementById('registerModal').style.display = 'none';
-        } else {
-            alert(data.error);
         }
-    } catch (err) { alert("Registration failed."); }
+    } catch (err) { 
+        console.error(err);
+        alert("Registration failed."); 
+    }
 }
 
 function logout() {
